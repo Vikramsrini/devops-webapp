@@ -1,11 +1,3578 @@
 <!DOCTYPE html>
+<html lang="en">
+
 <head>
-    <title>My Web Page</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vision Bin — AI Smart Waste Classification</title>
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230A1628'/%3E%3Cpath d='M32 12 L22 28 H42 Z' fill='none' stroke='%2300A896' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M20 48 L15 32 H30 Z' fill='none' stroke='%2302C39A' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M44 48 L49 32 H34 Z' fill='none' stroke='%2300A896' stroke-width='3' stroke-linejoin='round'/%3E%3Cpath d='M27 20 C24 15 20 18 22 22' stroke='%2302C39A' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3Cpath d='M18 40 C14 42 17 47 21 45' stroke='%2300A896' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3Cpath d='M46 40 C50 38 48 33 44 34' stroke='%2302C39A' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap"
+    rel="stylesheet">
+  <style>
+    /* ═══════════════════════════════════════════════
+   RESET & TOKENS
+═══════════════════════════════════════════════ */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --ink: #0A1628;
+      --deep: #0D1F35;
+      --navy: #1B4F72;
+      --teal: #00A896;
+      --mint: #02C39A;
+      --coral: #F4623A;
+      --gold: #F5A623;
+      --fog: rgba(0, 168, 150, 0.08);
+      --border: rgba(0, 168, 150, 0.18);
+      --text: #C8DCE8;
+      --muted: #6B8BA4;
+      --white: #F0F6FA;
+      --ff-display: 'Syne', sans-serif;
+      --ff-mono: 'Space Mono', monospace;
+      --ff-body: 'DM Sans', sans-serif;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: var(--ink);
+      color: var(--text);
+      font-family: var(--ff-body);
+      font-size: 16px;
+      line-height: 1.65;
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* ═══════════════════════════════════════════════
+   CUSTOM CURSOR
+═══════════════════════════════════════════════ */
+    .cursor {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 9999;
+      pointer-events: none;
+      mix-blend-mode: screen;
+    }
+
+    .cursor-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--teal);
+      box-shadow: 0 0 12px var(--teal);
+      transition: transform 0.1s;
+    }
+
+    .cursor-ring {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 9998;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(0, 168, 150, 0.5);
+      pointer-events: none;
+      transition: transform 0.12s ease, width 0.2s, height 0.2s, border-color 0.2s;
+    }
+
+    body:has(a:hover) .cursor-ring,
+    body:has(button:hover) .cursor-ring {
+      width: 52px;
+      height: 52px;
+      border-color: var(--mint);
+    }
+
+    /* ═══════════════════════════════════════════════
+   GLOBAL NOISE OVERLAY
+═══════════════════════════════════════════════ */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: 9990;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity: 0.4;
+    }
+
+    /* ═══════════════════════════════════════════════
+   NAV
+═══════════════════════════════════════════════ */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 48px;
+      background: rgba(10, 22, 40, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--ff-display);
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--white);
+      text-decoration: none;
+    }
+
+    .nav-logo-icon {
+      width: 32px;
+      height: 32px;
+      border: 2px solid var(--teal);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      animation: logo-pulse 3s ease-in-out infinite;
+    }
+
+    @keyframes logo-pulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(0, 168, 150, 0.4);
+      }
+
+      50% {
+        box-shadow: 0 0 0 8px rgba(0, 168, 150, 0);
+      }
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-family: var(--ff-mono);
+      font-size: 12px;
+      color: var(--muted);
+      text-decoration: none;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      transition: color 0.2s;
+      position: relative;
+    }
+
+    .nav-links a::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--teal);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.3s;
+    }
+
+    .nav-links a:hover {
+      color: var(--teal);
+    }
+
+    .nav-links a:hover::after {
+      transform: scaleX(1);
+    }
+
+    .nav-badge {
+      font-family: var(--ff-mono);
+      font-size: 10px;
+      padding: 6px 14px;
+      border: 1px solid var(--teal);
+      border-radius: 4px;
+      color: var(--teal);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      animation: blink-border 2s ease-in-out infinite;
+    }
+
+    @keyframes blink-border {
+
+      0%,
+      100% {
+        border-color: var(--teal);
+      }
+
+      50% {
+        border-color: rgba(0, 168, 150, 0.3);
+      }
+    }
+
+    /* ═══════════════════════════════════════════════
+   HERO
+═══════════════════════════════════════════════ */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      padding: 120px 48px 80px;
+      text-align: center;
+    }
+
+    /* Animated grid */
+    .hero-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0, 168, 150, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 168, 150, 0.05) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+      animation: grid-move 20s linear infinite;
+    }
+
+    @keyframes grid-move {
+      from {
+        background-position: 0 0;
+      }
+
+      to {
+        background-position: 60px 60px;
+      }
+    }
+
+    /* Floating orbs */
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(60px);
+      pointer-events: none;
+      animation: orb-float 8s ease-in-out infinite;
+    }
+
+    .orb-1 {
+      width: 400px;
+      height: 400px;
+      background: rgba(0, 168, 150, 0.12);
+      top: -10%;
+      left: -10%;
+      animation-delay: 0s;
+    }
+
+    .orb-2 {
+      width: 300px;
+      height: 300px;
+      background: rgba(244, 98, 58, 0.08);
+      bottom: 10%;
+      right: -5%;
+      animation-delay: -3s;
+    }
+
+    .orb-3 {
+      width: 200px;
+      height: 200px;
+      background: rgba(2, 195, 154, 0.1);
+      top: 40%;
+      left: 60%;
+      animation-delay: -6s;
+    }
+
+    @keyframes orb-float {
+
+      0%,
+      100% {
+        transform: translateY(0) scale(1);
+      }
+
+      50% {
+        transform: translateY(-30px) scale(1.05);
+      }
+    }
+
+    /* Scanner line */
+    .scanner-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--teal), transparent);
+      box-shadow: 0 0 20px var(--teal);
+      animation: scan 5s linear infinite;
+      opacity: 0.6;
+    }
+
+    @keyframes scan {
+      0% {
+        top: 0%;
+      }
+
+      100% {
+        top: 100%;
+      }
+    }
+
+    .hero-eyebrow {
+      font-family: var(--ff-mono);
+      font-size: 11px;
+      color: var(--teal);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .hero-eyebrow::before,
+    .hero-eyebrow::after {
+      content: '';
+      display: block;
+      width: 40px;
+      height: 1px;
+      background: var(--teal);
+    }
+
+    .hero-title {
+      font-family: var(--ff-display);
+      font-size: clamp(64px, 9vw, 120px);
+      font-weight: 800;
+      line-height: 0.92;
+      color: var(--white);
+      letter-spacing: -3px;
+      margin-bottom: 8px;
+    }
+
+    .hero-title .accent {
+      color: var(--teal);
+    }
+
+    .hero-subtitle-line {
+      font-family: var(--ff-display);
+      font-size: clamp(22px, 3vw, 36px);
+      font-weight: 400;
+      color: var(--muted);
+      margin-bottom: 36px;
+      letter-spacing: -0.5px;
+    }
+
+    .hero-desc {
+      max-width: 600px;
+      font-size: 17px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 48px;
+    }
+
+    .hero-cta {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn-primary {
+      padding: 14px 36px;
+      background: var(--teal);
+      color: var(--ink);
+      font-family: var(--ff-mono);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 4px;
+      cursor: none;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 0 0 0 rgba(0, 168, 150, 0.4);
+    }
+
+    .btn-primary:hover {
+      background: var(--mint);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0, 168, 150, 0.35);
+    }
+
+    .btn-ghost {
+      padding: 14px 36px;
+      background: transparent;
+      color: var(--text);
+      font-family: var(--ff-mono);
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      cursor: none;
+      text-decoration: none;
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .btn-ghost:hover {
+      border-color: var(--teal);
+      color: var(--teal);
+    }
+
+    /* Hero stats strip */
+    .hero-stats {
+      position: absolute;
+      bottom: 40px;
+      display: flex;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(13, 31, 53, 0.6);
+      backdrop-filter: blur(10px);
+    }
+
+    .hero-stat {
+      padding: 16px 36px;
+      border-right: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .hero-stat:last-child {
+      border-right: none;
+    }
+
+    .stat-val {
+      font-family: var(--ff-display);
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--teal);
+      display: block;
+      line-height: 1;
+    }
+
+    .stat-lbl {
+      font-family: var(--ff-mono);
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 4px;
+      display: block;
+    }
+
+    /* ═══════════════════════════════════════════════
+   SECTION COMMONS
+═══════════════════════════════════════════════ */
+    section {
+      padding: 100px 48px;
+      position: relative;
+    }
+
+    .section-label {
+      font-family: var(--ff-mono);
+      font-size: 10px;
+      color: var(--teal);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-label::before {
+      content: '//';
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .section-title {
+      font-family: var(--ff-display);
+      font-size: clamp(36px, 5vw, 58px);
+      font-weight: 800;
+      color: var(--white);
+      line-height: 1.05;
+      letter-spacing: -1.5px;
+      margin-bottom: 20px;
+    }
+
+    .section-desc {
+      font-size: 17px;
+      color: var(--muted);
+      max-width: 560px;
+      line-height: 1.7;
+      margin-bottom: 64px;
+    }
+
+    .max-w {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* ═══════════════════════════════════════════════
+   PROBLEM SECTION
+═══════════════════════════════════════════════ */
+    .problem-section {
+      background: var(--deep);
+    }
+
+    .problem-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      margin-top: 60px;
+    }
+
+    .problem-card {
+      padding: 48px 36px;
+      background: var(--ink);
+      position: relative;
+      overflow: hidden;
+      transition: background 0.3s;
+    }
+
+    .problem-card:hover {
+      background: rgba(0, 168, 150, 0.04);
+    }
+
+    .problem-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--card-accent, var(--teal));
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.4s;
+    }
+
+    .problem-card:hover::before {
+      transform: scaleX(1);
+    }
+
+    .problem-num {
+      font-family: var(--ff-mono);
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      margin-bottom: 24px;
+    }
+
+    .problem-icon {
+      font-size: 40px;
+      margin-bottom: 20px;
+      display: block;
+      filter: grayscale(0.3);
+    }
+
+    .problem-card h3 {
+      font-family: var(--ff-display);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 12px;
+    }
+
+    .problem-card p {
+      font-size: 15px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    /* ═══════════════════════════════════════════════
+   HOW IT WORKS
+═══════════════════════════════════════════════ */
+    .pipeline {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+      position: relative;
+      margin-top: 60px;
+    }
+
+    .pipeline-connector {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+      margin-top: 52px;
+      position: relative;
+    }
+
+    .pipeline-connector::after {
+      content: '';
+      position: absolute;
+      top: -3px;
+      right: -1px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--teal);
+      box-shadow: 0 0 8px var(--teal);
+      animation: dot-travel 3s ease-in-out infinite;
+    }
+
+    @keyframes dot-travel {
+      0% {
+        left: 0;
+        opacity: 0;
+      }
+
+      10% {
+        opacity: 1;
+      }
+
+      90% {
+        opacity: 1;
+      }
+
+      100% {
+        left: 100%;
+        opacity: 0;
+      }
+    }
+
+    .pipeline-step {
+      width: 180px;
+      flex-shrink: 0;
+      text-align: center;
+    }
+
+    .step-circle {
+      width: 104px;
+      height: 104px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border);
+      background: var(--deep);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      margin: 0 auto 20px;
+      position: relative;
+      transition: border-color 0.3s, transform 0.3s;
+    }
+
+    .pipeline-step:hover .step-circle {
+      border-color: var(--teal);
+      transform: scale(1.08);
+      box-shadow: 0 0 30px rgba(0, 168, 150, 0.2);
+    }
+
+    .step-num {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--teal);
+      color: var(--ink);
+      font-family: var(--ff-mono);
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .step-label {
+      font-family: var(--ff-display);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 6px;
+    }
+
+    .step-sub {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--ff-mono);
+      letter-spacing: 0.5px;
+    }
+
+    /* ═══════════════════════════════════════════════
+   TECH SECTION
+═══════════════════════════════════════════════ */
+    .tech-section {
+      background: var(--ink);
+    }
+
+    .tech-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px;
+      margin-top: 60px;
+    }
+
+    .tech-card {
+      background: var(--deep);
+      padding: 52px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .tech-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      top: 0;
+      background: radial-gradient(ellipse at bottom right, rgba(0, 168, 150, 0.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .tech-tag {
+      font-family: var(--ff-mono);
+      font-size: 10px;
+      color: var(--ink);
+      background: var(--teal);
+      padding: 4px 10px;
+      border-radius: 2px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      display: inline-block;
+      margin-bottom: 28px;
+    }
+
+    .tech-tag.coral {
+      background: var(--coral);
+    }
+
+    .tech-card h3 {
+      font-family: var(--ff-display);
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--white);
+      margin-bottom: 8px;
+      line-height: 1;
+    }
+
+    .tech-card .tech-version {
+      font-family: var(--ff-mono);
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 24px;
+      display: block;
+    }
+
+    .tech-card p {
+      font-size: 15px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 28px;
+    }
+
+    .tech-bullets {
+      list-style: none;
+    }
+
+    .tech-bullets li {
+      font-size: 14px;
+      color: var(--text);
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--ff-mono);
+      font-size: 12px;
+    }
+
+    .tech-bullets li:last-child {
+      border-bottom: none;
+    }
+
+    .tech-bullets li::before {
+      content: '▸';
+      color: var(--teal);
+      flex-shrink: 0;
+    }
+
+    /* ═══════════════════════════════════════════════
+   PERFORMANCE SECTION
+═══════════════════════════════════════════════ */
+    .perf-section {
+      background: var(--deep);
+      overflow: hidden;
+    }
+
+    .perf-layout {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 80px;
+      align-items: center;
+      margin-top: 60px;
+    }
+
+    /* Big accuracy display */
+    .accuracy-display {
+      position: relative;
+    }
+
+    .acc-ring {
+      width: 320px;
+      height: 320px;
+      position: relative;
+      margin: 0 auto 40px;
+    }
+
+    .acc-ring svg {
+      position: absolute;
+      inset: 0;
+      transform: rotate(-90deg);
+    }
+
+    .acc-ring circle {
+      fill: none;
+      stroke-width: 12;
+      stroke-linecap: round;
+    }
+
+    .acc-ring .track {
+      stroke: rgba(0, 168, 150, 0.12);
+    }
+
+    .acc-ring .fill {
+      stroke: var(--teal);
+      stroke-dasharray: 879;
+      stroke-dashoffset: 879;
+      filter: drop-shadow(0 0 8px var(--teal));
+      animation: fill-ring 2s 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    @keyframes fill-ring {
+      to {
+        stroke-dashoffset: 87;
+      }
+    }
+
+    .acc-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .acc-pct {
+      font-family: var(--ff-display);
+      font-size: 72px;
+      font-weight: 800;
+      color: var(--white);
+      line-height: 1;
+      letter-spacing: -3px;
+    }
+
+    .acc-pct span {
+      color: var(--teal);
+    }
+
+    .acc-label {
+      font-family: var(--ff-mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 6px;
+    }
+
+    /* Category bars */
+    .cat-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .cat-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .cat-name {
+      font-family: var(--ff-mono);
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      width: 90px;
+      flex-shrink: 0;
+    }
+
+    .cat-track {
+      flex: 1;
+      height: 6px;
+      background: rgba(0, 168, 150, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .cat-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--teal), var(--mint));
+      transform-origin: left;
+      animation: bar-grow 1.5s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+    }
+
+    @keyframes bar-grow {
+      from {
+        transform: scaleX(0);
+      }
+
+      to {
+        transform: scaleX(1);
+      }
+    }
+
+    .cat-pct {
+      font-family: var(--ff-mono);
+      font-size: 11px;
+      color: var(--teal);
+      width: 36px;
+      text-align: right;
+    }
+
+    /* ═══════════════════════════════════════════════
+   CATEGORIES SECTION
+═══════════════════════════════════════════════ */
+    .cats-section {
+      background: var(--ink);
+    }
+
+    .cats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 60px;
+    }
+
+    .cat-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 28px;
+      background: rgba(13, 31, 53, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: border-color 0.3s, transform 0.3s, background 0.3s;
+      cursor: default;
+    }
+
+    .cat-card:hover {
+      border-color: var(--teal);
+      transform: translateY(-4px);
+      background: rgba(0, 168, 150, 0.06);
+    }
+
+    .cat-emoji {
+      font-size: 32px;
+      flex-shrink: 0;
+    }
+
+    .cat-info h4 {
+      font-family: var(--ff-display);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 4px;
+    }
+
+    .cat-info p {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .cat-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    /* ═══════════════════════════════════════════════
+   HARDWARE SECTION
+═══════════════════════════════════════════════ */
+    .hw-section {
+      background: var(--deep);
+    }
+
+    .hw-diagram {
+      margin-top: 60px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--ink);
+      position: relative;
+    }
+
+    .hw-diagram-header {
+      padding: 16px 24px;
+      background: rgba(0, 168, 150, 0.06);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hw-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .hw-diagram-body {
+      padding: 48px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+    }
+
+    .hw-component {
+      background: var(--deep);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 28px 20px;
+      text-align: center;
+      transition: border-color 0.3s, transform 0.3s;
+      position: relative;
+    }
+
+    .hw-component:hover {
+      border-color: var(--teal);
+      transform: translateY(-4px);
+    }
+
+    .hw-component::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      right: -24px;
+      width: 24px;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .hw-component:last-child::after {
+      display: none;
+    }
+
+    .hw-icon {
+      font-size: 36px;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .hw-component h4 {
+      font-family: var(--ff-display);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 8px;
+    }
+
+    .hw-component p {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .hw-tag {
+      display: inline-block;
+      margin-top: 10px;
+      font-family: var(--ff-mono);
+      font-size: 9px;
+      color: var(--teal);
+      background: rgba(0, 168, 150, 0.1);
+      border: 1px solid rgba(0, 168, 150, 0.3);
+      padding: 2px 8px;
+      border-radius: 3px;
+      letter-spacing: 1px;
+    }
+
+    /* ═══════════════════════════════════════════════
+   ROADMAP SECTION
+═══════════════════════════════════════════════ */
+    .roadmap-section {
+      background: var(--ink);
+    }
+
+    .roadmap-list {
+      margin-top: 60px;
+      position: relative;
+      padding-left: 40px;
+    }
+
+    .roadmap-list::before {
+      content: '';
+      position: absolute;
+      left: 14px;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--border);
+    }
+
+    .roadmap-item {
+      position: relative;
+      padding: 0 0 56px 40px;
+    }
+
+    .roadmap-item:last-child {
+      padding-bottom: 0;
+    }
+
+    .roadmap-dot {
+      position: absolute;
+      left: -40px;
+      top: 4px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--ink);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      transition: border-color 0.3s;
+    }
+
+    .roadmap-item:hover .roadmap-dot {
+      border-color: var(--teal);
+    }
+
+    .roadmap-phase {
+      font-family: var(--ff-mono);
+      font-size: 10px;
+      color: var(--teal);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .roadmap-item h3 {
+      font-family: var(--ff-display);
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 8px;
+    }
+
+    .roadmap-item p {
+      font-size: 15px;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 560px;
+    }
+
+    .roadmap-tags {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .r-tag {
+      font-family: var(--ff-mono);
+      font-size: 10px;
+      color: var(--muted);
+      background: var(--deep);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 3px;
+      letter-spacing: 1px;
+    }
+
+    /* ═══════════════════════════════════════════════
+   STACK SECTION
+═══════════════════════════════════════════════ */
+    .stack-section {
+      background: var(--deep);
+    }
+
+    .stack-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 2px;
+      margin-top: 60px;
+    }
+
+    .stack-item {
+      background: var(--ink);
+      padding: 32px 16px;
+      text-align: center;
+      transition: background 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stack-item:hover {
+      background: rgba(0, 168, 150, 0.06);
+    }
+
+    .stack-item:hover .stack-icon {
+      transform: scale(1.15);
+    }
+
+    .stack-icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+      display: block;
+      transition: transform 0.3s;
+    }
+
+    .stack-name {
+      font-family: var(--ff-mono);
+      font-size: 11px;
+      color: var(--text);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .stack-role {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* ═══════════════════════════════════════════════
+   FOOTER / CONTACT
+═══════════════════════════════════════════════ */
+    .footer-section {
+      background: var(--ink);
+      padding: 80px 48px 48px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .footer-section::before {
+      content: 'VISION BIN';
+      position: absolute;
+      bottom: -30px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--ff-display);
+      font-size: 180px;
+      font-weight: 800;
+      color: rgba(0, 168, 150, 0.03);
+      white-space: nowrap;
+      pointer-events: none;
+      letter-spacing: -10px;
+    }
+
+    .footer-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: 60px;
+      border-bottom: 1px solid var(--border);
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .footer-brand {
+      font-family: var(--ff-display);
+      font-size: 48px;
+      font-weight: 800;
+      color: var(--white);
+      line-height: 1;
+      letter-spacing: -2px;
+    }
+
+    .footer-brand span {
+      color: var(--teal);
+    }
+
+    .footer-tagline {
+      font-size: 15px;
+      color: var(--muted);
+      margin-top: 12px;
+      max-width: 340px;
+    }
+
+    .footer-info {
+      text-align: right;
+    }
+
+    .footer-info p {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .footer-info .creator {
+      font-family: var(--ff-display);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 16px;
+    }
+
+    .footer-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 32px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .footer-copy {
+      font-family: var(--ff-mono);
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+
+    .footer-made {
+      font-family: var(--ff-mono);
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+
+    .footer-made span {
+      color: var(--teal);
+    }
+
+    /* ═══════════════════════════════════════════════
+   SCROLL REVEAL
+═══════════════════════════════════════════════ */
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.7s, transform 0.7s;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .reveal-delay-1 {
+      transition-delay: 0.1s;
+    }
+
+    .reveal-delay-2 {
+      transition-delay: 0.2s;
+    }
+
+    .reveal-delay-3 {
+      transition-delay: 0.3s;
+    }
+
+    .reveal-delay-4 {
+      transition-delay: 0.4s;
+    }
+
+    .reveal-delay-5 {
+      transition-delay: 0.5s;
+    }
+
+    /* ═══════════════════════════════════════════════
+   LIVE COUNTER BANNER
+═══════════════════════════════════════════════ */
+    .ticker {
+      background: var(--teal);
+      padding: 10px 0;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .ticker-inner {
+      display: inline-flex;
+      animation: ticker-run 25s linear infinite;
+    }
+
+    .ticker-item {
+      font-family: var(--ff-mono);
+      font-size: 12px;
+      color: var(--ink);
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 0 40px;
+    }
+
+    .ticker-sep {
+      color: rgba(10, 22, 40, 0.4);
+    }
+
+    @keyframes ticker-run {
+      from {
+        transform: translateX(0);
+      }
+
+      to {
+        transform: translateX(-50%);
+      }
+    }
+
+    /* ═══════════════════════════════════════════════
+   PARTICLE CANVAS
+═══════════════════════════════════════════════ */
+    #particleCanvas {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ═══════════════════════════════════════════════
+   TYPING CURSOR
+═══════════════════════════════════════════════ */
+    .typing-cursor::after {
+      content: '|';
+      color: var(--teal);
+      animation: blink-cursor 0.7s step-end infinite;
+      font-weight: 300;
+    }
+
+    @keyframes blink-cursor {
+      50% {
+        opacity: 0;
+      }
+    }
+
+    /* ═══════════════════════════════════════════════
+   FLOATING DEMO CTA
+═══════════════════════════════════════════════ */
+    .floating-cta {
+      position: fixed;
+      bottom: 32px;
+      right: 32px;
+      z-index: 200;
+      padding: 14px 28px;
+      background: linear-gradient(135deg, var(--teal), var(--mint));
+      color: var(--ink);
+      font-family: var(--ff-mono);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 8px 32px rgba(0, 168, 150, 0.4), 0 0 0 0 rgba(0, 168, 150, 0.3);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s, box-shadow 0.3s;
+    }
+
+    .floating-cta.visible {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .floating-cta:hover {
+      box-shadow: 0 12px 40px rgba(0, 168, 150, 0.55), 0 0 0 6px rgba(0, 168, 150, 0.15);
+      transform: translateY(-3px);
+    }
+
+    .floating-cta .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--ink);
+      animation: float-pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes float-pulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(10, 22, 40, 0.5);
+      }
+
+      50% {
+        box-shadow: 0 0 0 5px rgba(10, 22, 40, 0);
+      }
+    }
+
+    /* ═══════════════════════════════════════════════
+   BACK TO TOP
+═══════════════════════════════════════════════ */
+    .back-to-top {
+      position: fixed;
+      bottom: 32px;
+      left: 32px;
+      z-index: 200;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--deep);
+      border: 1px solid var(--border);
+      color: var(--teal);
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      text-decoration: none;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s, border-color 0.2s, background 0.2s;
+    }
+
+    .back-to-top.visible {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .back-to-top:hover {
+      border-color: var(--teal);
+      background: rgba(0, 168, 150, 0.1);
+    }
+
+    /* ═══════════════════════════════════════════════
+   LIVE DEMO SECTION
+═══════════════════════════════════════════════ */
+    .demo-section {
+      background: var(--deep);
+      overflow: hidden;
+    }
+
+    /* ── Simulation 2x2 Grid ── */
+    .sim-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px;
+      margin-top: 48px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: var(--border);
+      max-width: 960px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .sim-panel {
+      background: var(--ink);
+      position: relative;
+      aspect-ratio: 16/10;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sim-panel.active-panel {
+      background: rgba(0, 168, 150, 0.03);
+    }
+
+    /* Step number badge */
+    .sim-step-badge {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sim-step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--teal);
+      color: var(--ink);
+      font-family: var(--ff-mono);
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sim-step-title {
+      font-family: var(--ff-mono);
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── Panel 1: Camera + Detection ── */
+    .sim-machine {
+      position: relative;
+      width: 70%;
+      height: 75%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Turntable base */
+    .sim-turntable {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #1a1a2e, #16213e);
+      border: 2px solid rgba(255, 255, 255, 0.08);
+      box-shadow:
+        0 4px 30px rgba(0, 0, 0, 0.5),
+        inset 0 2px 8px rgba(255, 255, 255, 0.04);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .sim-turntable::after {
+      content: '';
+      position: absolute;
+      inset: 8px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .sim-waste-item {
+      font-size: 40px;
+      position: relative;
+      z-index: 3;
+      transition: all 0.6s ease;
+      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+    }
+
+    /* Camera gantry */
+    .sim-camera-frame {
+      position: absolute;
+      top: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 160px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sim-camera-arm-left,
+    .sim-camera-arm-right {
+      width: 3px;
+      height: 46px;
+      background: linear-gradient(180deg, #2a2a3e, #1a1a2e);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      position: absolute;
+      bottom: 0;
+    }
+
+    .sim-camera-arm-left {
+      left: 10px;
+    }
+
+    .sim-camera-arm-right {
+      right: 10px;
+    }
+
+    .sim-camera-bar {
+      width: 100%;
+      height: 10px;
+      background: linear-gradient(180deg, #2a2a3e, #1a1a2e);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      position: relative;
+    }
+
+    .sim-camera-lens {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #4a8fe8, #1a3a6a);
+      border: 2px solid #2a2a3e;
+      box-shadow: 0 0 8px rgba(74, 143, 232, 0.5);
+    }
+
+    /* Detection overlay tooltip */
+    .sim-detect-tooltip {
+      position: absolute;
+      left: 10px;
+      bottom: 20%;
+      background: rgba(20, 20, 35, 0.92);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 10px 14px;
+      z-index: 10;
+      opacity: 0;
+      transform: translateX(-10px);
+      transition: opacity 0.5s, transform 0.5s;
+      min-width: 170px;
+    }
+
+    .sim-panel.active-panel .sim-detect-tooltip {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .sim-detect-line {
+      font-family: var(--ff-mono);
+      font-size: 10px;
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    .sim-detect-line .val {
+      color: var(--teal);
+      font-weight: 700;
+    }
+
+    .sim-detect-line .label-key {
+      color: var(--muted);
+    }
+
+    /* Scanner line on panel 1 */
+    .sim-scanner {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--teal), transparent);
+      box-shadow: 0 0 14px var(--teal);
+      opacity: 0.6;
+      animation: sim-scan 3.5s linear infinite;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    @keyframes sim-scan {
+      0% {
+        top: 10%;
+        opacity: 0;
+      }
+
+      5% {
+        opacity: 0.6;
+      }
+
+      95% {
+        opacity: 0.6;
+      }
+
+      100% {
+        top: 90%;
+        opacity: 0;
+      }
+    }
+
+    /* ── Panel 2: Rotating ── */
+    .sim-rotate-scene {
+      position: relative;
+      width: 70%;
+      height: 75%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sim-turntable-rotating {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #1a1a2e, #16213e);
+      border: 2px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5), inset 0 2px 8px rgba(255, 255, 255, 0.04);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: turntable-spin 4s ease-in-out infinite;
+      position: relative;
+    }
+
+    .sim-turntable-rotating::after {
+      content: '';
+      position: absolute;
+      inset: 8px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    /* Graduation marks on turntable */
+    .sim-turntable-rotating::before {
+      content: '';
+      position: absolute;
+      inset: 3px;
+      border-radius: 50%;
+      border: 1px dashed rgba(0, 168, 150, 0.2);
+    }
+
+    @keyframes turntable-spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      30% {
+        transform: rotate(0deg);
+      }
+
+      70% {
+        transform: rotate(90deg);
+      }
+
+      100% {
+        transform: rotate(90deg);
+      }
+    }
+
+    .sim-rotate-badge {
+      position: absolute;
+      right: 12px;
+      bottom: 24%;
+      background: rgba(20, 20, 35, 0.92);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-family: var(--ff-mono);
+      font-size: 12px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 5;
+    }
+
+    .sim-rotate-badge .deg {
+      color: var(--teal);
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    /* Motion arc */
+    .sim-arc {
+      position: absolute;
+      width: 120px;
+      height: 120px;
+      border: 2px dashed rgba(0, 168, 150, 0.2);
+      border-radius: 50%;
+      clip-path: polygon(50% 50%, 100% 0%, 100% 100%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    /* ── Panel 3: Drop / Sliding ── */
+    .sim-drop-scene {
+      position: relative;
+      width: 70%;
+      height: 75%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sim-turntable-tilt {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #1a1a2e, #16213e);
+      border: 2px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: tilt-plate 4s ease-in-out infinite;
+      transform-origin: left center;
+      position: relative;
+    }
+
+    @keyframes tilt-plate {
+
+      0%,
+      20% {
+        transform: rotate(0deg);
+      }
+
+      40%,
+      60% {
+        transform: rotate(18deg);
+      }
+
+      80%,
+      100% {
+        transform: rotate(0deg);
+      }
+    }
+
+    .sim-falling-waste {
+      font-size: 32px;
+      position: absolute;
+      z-index: 4;
+      animation: waste-fall 4s ease-in infinite;
+      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+    }
+
+    @keyframes waste-fall {
+
+      0%,
+      30% {
+        top: 35%;
+        right: 38%;
+        opacity: 1;
+        transform: rotate(0deg) scale(1);
+      }
+
+      35% {
+        opacity: 1;
+      }
+
+      70% {
+        top: 80%;
+        right: 30%;
+        opacity: 0.6;
+        transform: rotate(45deg) scale(0.7);
+      }
+
+      71%,
+      100% {
+        opacity: 0;
+        top: 85%;
+      }
+    }
+
+    /* Glow indicator on plate edge */
+    .sim-tilt-glow {
+      position: absolute;
+      bottom: 30%;
+      right: 25%;
+      width: 60px;
+      height: 4px;
+      background: linear-gradient(90deg, transparent, var(--teal), transparent);
+      border-radius: 2px;
+      animation: tilt-glow-pulse 4s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes tilt-glow-pulse {
+
+      0%,
+      20%,
+      80%,
+      100% {
+        opacity: 0;
+      }
+
+      40%,
+      60% {
+        opacity: 0.7;
+      }
+    }
+
+    /* ── Panel 4: Bins ── */
+    .sim-bins-scene {
+      position: relative;
+      width: 85%;
+      height: 75%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 8px;
+      padding-bottom: 10px;
+    }
+
+    .sim-bin {
+      flex: 1;
+      background: linear-gradient(180deg, #1a1a2e 0%, #0e0e1a 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px 6px 4px 4px;
+      height: 65%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 10px 4px;
+      position: relative;
+      transition: border-color 0.4s, box-shadow 0.4s;
+      overflow: hidden;
+    }
+
+    .sim-bin.active-bin {
+      border-color: var(--teal);
+      box-shadow: 0 0 20px rgba(0, 168, 150, 0.15);
+    }
+
+    .sim-bin-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      justify-content: center;
+      margin-bottom: 8px;
+      font-size: 18px;
+      min-height: 36px;
+    }
+
+    .sim-bin-label {
+      font-family: var(--ff-mono);
+      font-size: 8px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 4px 8px;
+      border-radius: 2px;
+      width: 100%;
+      text-align: center;
+      transition: color 0.3s, background 0.3s;
+    }
+
+    .sim-bin.active-bin .sim-bin-label {
+      color: var(--teal);
+      background: rgba(0, 168, 150, 0.1);
+    }
+
+    /* Fill indicator */
+    .sim-bin-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(180deg, rgba(0, 168, 150, 0.08), rgba(0, 168, 150, 0.03));
+      height: 30%;
+      pointer-events: none;
+      transition: height 0.6s;
+    }
+
+    .sim-bin.active-bin .sim-bin-fill {
+      height: 45%;
+    }
+
+    /* ── Step indicator row ── */
+    .sim-steps-row {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 24px;
+    }
+
+    .sim-step-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--ff-mono);
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+      cursor: default;
+      transition: color 0.3s;
+      padding: 6px 0;
+      position: relative;
+    }
+
+    .sim-step-indicator.active-step {
+      color: var(--teal);
+    }
+
+    .sim-step-indicator::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--teal);
+      transform: scaleX(0);
+      transition: transform 0.4s;
+      transform-origin: left;
+    }
+
+    .sim-step-indicator.active-step::after {
+      transform: scaleX(1);
+    }
+
+    .sim-step-indicator .s-num {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 700;
+      transition: background 0.3s, border-color 0.3s, color 0.3s;
+    }
+
+    .sim-step-indicator.active-step .s-num {
+      background: var(--teal);
+      border-color: var(--teal);
+      color: var(--ink);
+    }
+
+    .demo-cta-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 28px;
+    }
+
+    @media (max-width: 700px) {
+      .sim-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .sim-steps-row {
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+    }
+
+    /* ═══════════════════════════════════════════════
+   NAV BADGE AS LINK
+═══════════════════════════════════════════════ */
+    a.nav-badge {
+      text-decoration: none;
+      transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+    }
+
+    a.nav-badge:hover {
+      background: var(--teal);
+      color: var(--ink);
+      box-shadow: 0 0 20px rgba(0, 168, 150, 0.4);
+    }
+
+    /* ═══════════════════════════════════════════════
+   ENHANCED CARD GLOW
+═══════════════════════════════════════════════ */
+    .problem-card:hover {
+      box-shadow: 0 8px 40px rgba(0, 168, 150, 0.08);
+    }
+
+    .tech-card {
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .tech-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 48px rgba(0, 168, 150, 0.12);
+    }
+
+    .stack-item {
+      transition: background 0.3s, box-shadow 0.3s, transform 0.3s;
+    }
+
+    .stack-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 168, 150, 0.1);
+    }
+
+    .roadmap-item {
+      transition: transform 0.3s;
+    }
+
+    .roadmap-item:hover {
+      transform: translateX(6px);
+    }
+
+    /* ═══════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════ */
+    @media (max-width: 900px) {
+      nav {
+        padding: 16px 24px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      section {
+        padding: 64px 24px;
+      }
+
+      .hero {
+        padding: 100px 24px 100px;
+      }
+
+      .hero-title {
+        font-size: clamp(48px, 12vw, 80px);
+      }
+
+      .problem-grid {
+        grid-template-columns: 1fr;
+        gap: 2px;
+      }
+
+      .tech-split {
+        grid-template-columns: 1fr;
+      }
+
+      .perf-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .cats-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .hw-diagram-body {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .stack-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .footer-top {
+        flex-direction: column;
+        gap: 40px;
+      }
+
+      .footer-info {
+        text-align: left;
+      }
+
+      .pipeline {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .pipeline-connector {
+        width: 1px;
+        height: 40px;
+        margin: 0;
+      }
+
+      .hero-stats {
+        position: relative;
+        bottom: auto;
+        flex-wrap: wrap;
+      }
+
+      .demo-container {
+        grid-template-columns: 1fr;
+      }
+
+      .floating-cta {
+        bottom: 16px;
+        right: 16px;
+        font-size: 10px;
+        padding: 10px 18px;
+      }
+
+      .back-to-top {
+        bottom: 16px;
+        left: 16px;
+      }
+
+      .showcase-layout {
+        grid-template-columns: 1fr;
+        gap: 40px;
+      }
+
+      .showcase-section {
+        padding: 60px 24px;
+      }
+
+      .showcase-features {
+        grid-template-columns: 1fr;
+      }
+
+      .problem-stats-banner {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    /* ═══════════════════════════════════════════════
+       PRODUCT SHOWCASE SECTION
+    ═══════════════════════════════════════════════ */
+    .showcase-section {
+      background: var(--ink);
+      overflow: hidden;
+      padding: 80px 48px;
+      position: relative;
+    }
+
+    .showcase-layout {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 60px;
+      align-items: center;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .showcase-image-container {
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      background: linear-gradient(145deg, rgba(0, 168, 150, 0.06), rgba(13, 31, 53, 0.6));
+      border: 1px solid var(--border);
+      padding: 24px;
+      transition: transform 0.5s ease, box-shadow 0.5s ease;
+    }
+
+    .showcase-image-container:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 24px 60px rgba(0, 168, 150, 0.15), 0 0 0 1px rgba(0, 168, 150, 0.3);
+    }
+
+    .showcase-image-container::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at top left, rgba(0, 168, 150, 0.08), transparent 60%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .showcase-image-container img {
+      width: 100%;
+      height: auto;
+      border-radius: 12px;
+      display: block;
+      position: relative;
+      z-index: 2;
+    }
+
+    .showcase-image-badge {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 10;
+      background: rgba(10, 22, 40, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--ff-mono);
+      font-size: 10px;
+      color: var(--teal);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .showcase-image-badge .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--teal);
+      animation: float-pulse 1.5s ease-in-out infinite;
+    }
+
+    .showcase-content {
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .showcase-features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .showcase-feature {
+      background: rgba(13, 31, 53, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      transition: border-color 0.3s, transform 0.3s, background 0.3s;
+    }
+
+    .showcase-feature:hover {
+      border-color: var(--teal);
+      transform: translateY(-3px);
+      background: rgba(0, 168, 150, 0.04);
+    }
+
+    .showcase-feature-icon {
+      font-size: 24px;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .showcase-feature h4 {
+      font-family: var(--ff-display);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 4px;
+    }
+
+    .showcase-feature p {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ═══════════════════════════════════════════════
+       PROBLEM STATS GRID
+    ═══════════════════════════════════════════════ */
+    .problem-stats-banner {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      margin-top: 48px;
+      margin-bottom: 48px;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .problem-stat-card {
+      background: var(--ink);
+      padding: 32px 24px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      transition: background 0.3s;
+    }
+
+    .problem-stat-card:hover {
+      background: rgba(0, 168, 150, 0.04);
+    }
+
+    .problem-stat-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 40px;
+      height: 2px;
+      background: var(--card-stat-color, var(--teal));
+      border-radius: 1px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .problem-stat-card:hover::after {
+      opacity: 1;
+    }
+
+    .problem-stat-value {
+      font-family: var(--ff-display);
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--white);
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .problem-stat-value span {
+      color: var(--card-stat-color, var(--teal));
+    }
+
+    .problem-stat-label {
+      font-family: var(--ff-mono);
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      line-height: 1.4;
+    }
+
+    .problem-stat-source {
+      font-size: 10px;
+      color: rgba(107, 139, 164, 0.5);
+      margin-top: 8px;
+      font-style: italic;
+    }
+
+    /* Problem detail stats in each card */
+    .problem-card-stat {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .problem-card-stat-value {
+      font-family: var(--ff-display);
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--card-accent, var(--teal));
+      line-height: 1;
+    }
+
+    .problem-card-stat-desc {
+      font-family: var(--ff-mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      line-height: 1.4;
+    }
+  </style>
 </head>
+
 <body>
-    <h1>Welcome to My Web Page</h1>
-    <p>This is a simple web page created for VLE-3 Lab .</p>
-    <h1>Updated Doc</h1>
-</body>         
+
+  <!-- Custom cursor -->
+  <div class="cursor" id="cursor">
+    <div class="cursor-dot"></div>
+  </div>
+  <div class="cursor-ring" id="cursorRing"></div>
+
+  <!-- NAV -->
+  <nav>
+    <a href="#" class="nav-logo">
+      <div class="nav-logo-icon">♻</div>
+      VisionBin
+    </a>
+    <ul class="nav-links">
+      <li><a href="#problem">Problem</a></li>
+      <li><a href="#how">How It Works</a></li>
+      <li><a href="#tech">Technology</a></li>
+      <li><a href="#performance">Results</a></li>
+      <li><a href="#roadmap">Roadmap</a></li>
+      <li><a href="#demo">Demo</a></li>
+    </ul>
+    <a href="http://localhost:5000" target="_blank" rel="noopener" class="nav-badge" id="liveDemoBtn">● Live
+      Demo</a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero" id="home">
+    <canvas id="particleCanvas"></canvas>
+    <div class="hero-grid"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="scanner-line"></div>
+
+    <div class="hero-eyebrow">Ideathon 2026 Project</div>
+    <h1 class="hero-title">
+      VISION<br><span class="accent">BIN</span>
+    </h1>
+    <p class="hero-subtitle-line typing-cursor" id="heroSubtitle">AI-Powered Smart Waste Classification</p>
+    <p class="hero-desc">
+      A hybrid YOLOv8 + LeViT-256 system that sees waste, thinks in milliseconds,
+      and sorts it automatically — no human required.
+    </p>
+    <div class="hero-cta">
+      <a href="#how" class="btn-primary">See How It Works →</a>
+      <a href="http://localhost:5000" target="_blank" rel="noopener" class="btn-ghost" id="heroLiveDemo">●
+        Live Demo</a>
+      <a href="#performance" class="btn-ghost">View Results</a>
+    </div>
+
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <span class="stat-val" data-count="90.14" data-suffix="%">0%</span>
+        <span class="stat-lbl">AI Accuracy</span>
+      </div>
+      <div class="hero-stat">
+        <span class="stat-val" data-count="9" data-suffix="">0</span>
+        <span class="stat-lbl">Waste Classes</span>
+      </div>
+      <div class="hero-stat">
+        <span class="stat-val">&lt;20ms</span>
+        <span class="stat-lbl">Inference Time</span>
+      </div>
+      <div class="hero-stat">
+        <span class="stat-val" data-count="100" data-suffix="%">0%</span>
+        <span class="stat-lbl">Automated</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- TICKER -->
+  <div class="ticker">
+    <div class="ticker-inner" id="ticker"></div>
+  </div>
+
+  <!-- PRODUCT SHOWCASE -->
+  <section class="showcase-section" id="showcase">
+    <div class="showcase-layout reveal">
+      <div class="showcase-image-container">
+        <div class="showcase-image-badge">
+          <span class="badge-dot"></span>
+          Prototype v1.0
+        </div>
+        <img src="Picture1.png"
+          alt="VisionBin Smart Waste Classification Device — AI-powered camera, rotating turntable, and multi-compartment waste bins"
+          loading="lazy">
+      </div>
+      <div class="showcase-content">
+        <div class="section-label">The Product</div>
+        <h2 class="section-title" style="margin-bottom:8px;">Meet VisionBin.</h2>
+        <p style="font-size:17px; color:var(--muted); line-height:1.7; margin-bottom:12px;">
+          An intelligent waste classification machine that combines a high-resolution camera,
+          dual AI models, and a precision-controlled rotating platform to sort waste autonomously
+          into the correct bin — in under a second.
+        </p>
+        <div class="showcase-features">
+          <div class="showcase-feature">
+            <span class="showcase-feature-icon">📷</span>
+            <h4>HD Camera Module</h4>
+            <p>1080p overhead camera for real-time waste imaging</p>
+          </div>
+          <div class="showcase-feature">
+            <span class="showcase-feature-icon">🧠</span>
+            <h4>Dual AI Inference</h4>
+            <p>YOLOv8 detection + LeViT-256 classification</p>
+          </div>
+          <div class="showcase-feature">
+            <span class="showcase-feature-icon">🔄</span>
+            <h4>Rotating Platform</h4>
+            <p>Stepper-motor controlled 360° turntable sorting</p>
+          </div>
+          <div class="showcase-feature">
+            <span class="showcase-feature-icon">🗑</span>
+            <h4>Multi-Compartment</h4>
+            <p>9 dedicated bins for complete waste separation</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROBLEM -->
+  <section class="problem-section" id="problem">
+    <div class="max-w">
+      <div class="section-label">The Challenge</div>
+      <h2 class="section-title reveal">Waste management<br>is broken.</h2>
+      <p class="section-desc reveal reveal-delay-1">
+        Global waste mismanagement costs billions and poisons ecosystems.
+        Manual sorting fails at scale — we need intelligence in the bin.
+      </p>
+
+      <!-- Global Waste Statistics Banner -->
+      <div class="problem-stats-banner reveal reveal-delay-2">
+        <div class="problem-stat-card" style="--card-stat-color: #F4623A;">
+          <div class="problem-stat-value"><span>2.01</span>B</div>
+          <div class="problem-stat-label">Tonnes of waste<br>generated yearly</div>
+          <div class="problem-stat-source">World Bank 2024</div>
+        </div>
+        <div class="problem-stat-card" style="--card-stat-color: #F5A623;">
+          <div class="problem-stat-value"><span>33</span>%</div>
+          <div class="problem-stat-label">Waste globally<br>mismanaged</div>
+          <div class="problem-stat-source">UN Environment</div>
+        </div>
+        <div class="problem-stat-card" style="--card-stat-color: #A78BFA;">
+          <div class="problem-stat-value">$<span>375</span>B</div>
+          <div class="problem-stat-label">Annual cost of<br>waste mismanagement</div>
+          <div class="problem-stat-source">ISWA Global Report</div>
+        </div>
+        <div class="problem-stat-card" style="--card-stat-color: #00A896;">
+          <div class="problem-stat-value"><span>15</span>M</div>
+          <div class="problem-stat-label">Informal workers<br>exposed to hazards</div>
+          <div class="problem-stat-source">ILO Report 2023</div>
+        </div>
+      </div>
+
+      <div class="problem-grid">
+        <div class="problem-card reveal" style="--card-accent: #F4623A;">
+          <div class="problem-num">01 —</div>
+          <span class="problem-icon">🌍</span>
+          <h3>Environmental Damage</h3>
+          <p>Unsegregated waste contaminates soil, water, and air — accelerating climate change and collapsing
+            ecosystems worldwide. Landfills emit 1.6 billion tonnes of CO₂-equivalent greenhouse gases per year.</p>
+          <div class="problem-card-stat">
+            <div class="problem-card-stat-value">1.6B</div>
+            <div class="problem-card-stat-desc">Tonnes CO₂ from<br>landfills yearly</div>
+          </div>
+        </div>
+        <div class="problem-card reveal reveal-delay-1" style="--card-accent: #F5A623;">
+          <div class="problem-num">02 —</div>
+          <span class="problem-icon">⚠️</span>
+          <h3>Inefficient Sorting</h3>
+          <p>Manual classification achieves only 40-60% accuracy, is slow, error-prone, and exposes workers to
+            hazardous materials. Only 13.5% of waste is recycled globally — the rest ends up in landfill or oceans.</p>
+          <div class="problem-card-stat">
+            <div class="problem-card-stat-value">13.5%</div>
+            <div class="problem-card-stat-desc">Global waste<br>recycling rate</div>
+          </div>
+        </div>
+        <div class="problem-card reveal reveal-delay-2" style="--card-accent: #00A896;">
+          <div class="problem-num">03 —</div>
+          <span class="problem-icon">🗑</span>
+          <h3>No Intelligence</h3>
+          <p>Existing bins are passive. Without real-time classification, recyclables and organics get
+            cross-contaminated. By 2050, waste generation is projected to increase by 70% to 3.4 billion
+            tonnes annually.</p>
+          <div class="problem-card-stat">
+            <div class="problem-card-stat-value">3.4B</div>
+            <div class="problem-card-stat-desc">Tonnes projected<br>by 2050</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section id="how" style="background: var(--ink);">
+    <div class="max-w">
+      <div class="section-label">System Architecture</div>
+      <h2 class="section-title reveal">Five steps to<br>a cleaner world.</h2>
+      <p class="section-desc reveal reveal-delay-1">
+        From camera capture to physical sorting — the entire pipeline runs in under a second,
+        with no cloud dependency required.
+      </p>
+
+      <div class="pipeline reveal">
+        <div class="pipeline-step">
+          <div class="step-circle">
+            📷
+            <div class="step-num">01</div>
+          </div>
+          <div class="step-label">Capture</div>
+          <div class="step-sub">Webcam feed</div>
+        </div>
+        <div class="pipeline-connector"></div>
+        <div class="pipeline-step">
+          <div class="step-circle">
+            🎯
+            <div class="step-num">02</div>
+          </div>
+          <div class="step-label">Detect</div>
+          <div class="step-sub">YOLOv8</div>
+        </div>
+        <div class="pipeline-connector"></div>
+        <div class="pipeline-step">
+          <div class="step-circle">
+            🧠
+            <div class="step-num">03</div>
+          </div>
+          <div class="step-label">Classify</div>
+          <div class="step-sub">LeViT-256</div>
+        </div>
+        <div class="pipeline-connector"></div>
+        <div class="pipeline-step">
+          <div class="step-circle">
+            🌐
+            <div class="step-num">04</div>
+          </div>
+          <div class="step-label">Dispatch</div>
+          <div class="step-sub">Flask API</div>
+        </div>
+        <div class="pipeline-connector"></div>
+        <div class="pipeline-step">
+          <div class="step-circle">
+            ⚙️
+            <div class="step-num">05</div>
+          </div>
+          <div class="step-label">Sort</div>
+          <div class="step-sub">Stepper motor</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TECH -->
+  <section class="tech-section" id="tech">
+    <div class="max-w">
+      <div class="section-label">AI Engine</div>
+      <h2 class="section-title reveal">Dual-model<br>intelligence.</h2>
+      <p class="section-desc reveal reveal-delay-1">
+        Two state-of-the-art models work in sequence — each doing what it does best —
+        for results no single model can match.
+      </p>
+
+      <div class="tech-split reveal">
+        <div class="tech-card">
+          <span class="tech-tag coral">Object Detection</span>
+          <h3>YOLOv8</h3>
+          <span class="tech-version">Ultralytics / Real-time</span>
+          <p>You Only Look Once — the gold standard for real-time object detection. YOLOv8 locates the waste object in
+            the frame with a bounding box, then hands it off for deep classification.</p>
+          <ul class="tech-bullets">
+            <li>Single-pass inference under 20ms</li>
+            <li>Anchor-free detection head</li>
+            <li>Optimized for edge deployment</li>
+            <li>Precision bounding box output</li>
+          </ul>
+        </div>
+        <div class="tech-card">
+          <span class="tech-tag">Image Classification</span>
+          <h3>LeViT-256</h3>
+          <span class="tech-version">Vision Transformer / Fine-tuned</span>
+          <p>A hybrid Vision Transformer that blends attention mechanisms with efficient pooling. Fine-tuned on 9 waste
+            categories, it achieves 90.14% accuracy with a compact architecture suited for real-time systems.</p>
+          <ul class="tech-bullets">
+            <li>90.14% top-1 classification accuracy</li>
+            <li>Attention + pooling hybrid layers</li>
+            <li>9-class fine-tuned waste model</li>
+            <li>Efficient transformer architecture</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PERFORMANCE -->
+  <section class="perf-section" id="performance">
+    <div class="max-w">
+      <div class="section-label">Results</div>
+      <h2 class="section-title reveal">Numbers that<br>speak for themselves.</h2>
+
+      <div class="perf-layout">
+        <div class="accuracy-display reveal">
+          <div class="acc-ring">
+            <svg viewBox="0 0 320 320" width="320" height="320">
+              <circle class="track" cx="160" cy="160" r="140" />
+              <circle class="fill" cx="160" cy="160" r="140" />
+            </svg>
+            <div class="acc-center">
+              <div class="acc-pct">90.14<span>%</span></div>
+              <div class="acc-label">Classification<br>Accuracy</div>
+            </div>
+          </div>
+          <p
+            style="text-align:center; font-size:14px; color:var(--muted); font-family: var(--ff-mono); font-size:11px; letter-spacing:1px;">
+            BENCHMARKED ON 9-CLASS TEST DATASET (2,364 SAMPLES)</p>
+        </div>
+
+        <div class="cat-bars reveal reveal-delay-2">
+          <h3
+            style="font-family:var(--ff-display); font-size:24px; font-weight:700; color:var(--white); margin-bottom:28px;">
+            Per-Category Precision</h3>
+          <div class="cat-bar-row">
+            <div class="cat-name">Organic</div>
+            <div class="cat-track">
+              <div class="cat-fill" style="width:96%; animation-delay:0.1s;"></div>
+            </div>
+            <div class="cat-pct">96%</div>
+          </div>
+          <div class="cat-bar-row">
+            <div class="cat-name">Cardboard</div>
+            <div class="cat-track">
+              <div class="cat-fill" style="width:91%; animation-delay:0.2s;"></div>
+            </div>
+            <div class="cat-pct">91%</div>
+          </div>
+          <div class="cat-bar-row">
+            <div class="cat-name">E-Waste</div>
+            <div class="cat-track">
+              <div class="cat-fill" style="width:91%; animation-delay:0.3s;"></div>
+            </div>
+            <div class="cat-pct">91%</div>
+          </div>
+          <div class="cat-bar-row">
+            <div class="cat-name">Glass</div>
+            <div class="cat-track">
+              <div class="cat-fill" style="width:90%; animation-delay:0.4s;"></div>
+            </div>
+            <div class="cat-pct">90%</div>
+          </div>
+          <div class="cat-bar-row">
+            <div class="cat-name">Metal</div>
+            <div class="cat-track">
+              <div class="cat-fill" style="width:90%; animation-delay:0.5s;"></div>
+            </div>
+            <div class="cat-pct">90%</div>
+          </div>
+          <div class="cat-bar-row">
+            <div class="cat-name">Paper</div>
+            <div class="cat-track">
+              <div class="cat-fill" style="width:90%; animation-delay:0.6s;"></div>
+            </div>
+            <div class="cat-pct">90%</div>
+          </div>
+          <div class="cat-bar-row">
+            <div class="cat-name">Foam</div>
+            <div class="cat-track">
+              <div class="cat-fill" style="width:89%; animation-delay:0.7s;"></div>
+            </div>
+            <div class="cat-pct">89%</div>
+          </div>
+          <div class="cat-bar-row">
+            <div class="cat-name">Plastic</div>
+            <div class="cat-track">
+              <div class="cat-fill" style="width:87%; animation-delay:0.8s;"></div>
+            </div>
+            <div class="cat-pct">87%</div>
+          </div>
+          <div class="cat-bar-row">
+            <div class="cat-name">Medical</div>
+            <div class="cat-track">
+              <div class="cat-fill" style="width:85%; animation-delay:0.9s;"></div>
+            </div>
+            <div class="cat-pct">85%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CATEGORIES -->
+  <section class="cats-section" id="categories">
+    <div class="max-w">
+      <div class="section-label">Waste Classes</div>
+      <h2 class="section-title reveal">9 categories.<br>Zero confusion.</h2>
+      <p class="section-desc reveal reveal-delay-1">
+        Vision Bin classifies across 9 distinct material types — covering the majority of
+        everyday waste with high per-class precision.
+      </p>
+      <div class="cats-grid">
+        <div class="cat-card reveal">
+          <span class="cat-emoji">📦</span>
+          <div class="cat-info">
+            <h4>Cardboard</h4>
+            <p>91% precision</p>
+          </div>
+          <div class="cat-dot" style="background:#F5A623;"></div>
+        </div>
+        <div class="cat-card reveal reveal-delay-1">
+          <span class="cat-emoji">🔌</span>
+          <div class="cat-info">
+            <h4>E-Waste</h4>
+            <p>91% precision</p>
+          </div>
+          <div class="cat-dot" style="background:#F4623A;"></div>
+        </div>
+        <div class="cat-card reveal reveal-delay-2">
+          <span class="cat-emoji">🫧</span>
+          <div class="cat-info">
+            <h4>Foam</h4>
+            <p>89% precision</p>
+          </div>
+          <div class="cat-dot" style="background:#A78BFA;"></div>
+        </div>
+        <div class="cat-card reveal">
+          <span class="cat-emoji">🍶</span>
+          <div class="cat-info">
+            <h4>Glass</h4>
+            <p>90% precision</p>
+          </div>
+          <div class="cat-dot" style="background:#38BDF8;"></div>
+        </div>
+        <div class="cat-card reveal reveal-delay-1">
+          <span class="cat-emoji">🥫</span>
+          <div class="cat-info">
+            <h4>Metal</h4>
+            <p>90% precision</p>
+          </div>
+          <div class="cat-dot" style="background:#94A3B8;"></div>
+        </div>
+        <div class="cat-card reveal reveal-delay-2">
+          <span class="cat-emoji">📄</span>
+          <div class="cat-info">
+            <h4>Paper</h4>
+            <p>90% precision</p>
+          </div>
+          <div class="cat-dot" style="background:#86EFAC;"></div>
+        </div>
+        <div class="cat-card reveal">
+          <span class="cat-emoji">🧴</span>
+          <div class="cat-info">
+            <h4>Plastic</h4>
+            <p>87% precision</p>
+          </div>
+          <div class="cat-dot" style="background:#1B4F72;"></div>
+        </div>
+        <div class="cat-card reveal reveal-delay-1">
+          <span class="cat-emoji">🍂</span>
+          <div class="cat-info">
+            <h4>Organic</h4>
+            <p>96% precision</p>
+          </div>
+          <div class="cat-dot" style="background:#4ADE80;"></div>
+        </div>
+        <div class="cat-card reveal reveal-delay-2">
+          <span class="cat-emoji">💊</span>
+          <div class="cat-info">
+            <h4>Medical</h4>
+            <p>85% precision</p>
+          </div>
+          <div class="cat-dot" style="background:#F9A8D4;"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HARDWARE -->
+  <section class="hw-section" id="hardware">
+    <div class="max-w">
+      <div class="section-label">Physical System</div>
+      <h2 class="section-title reveal">Hardware that<br>makes it real.</h2>
+      <p class="section-desc reveal reveal-delay-1">
+        AI alone isn't enough. Vision Bin bridges software intelligence with physical
+        precision hardware for a fully autonomous sorting experience.
+      </p>
+
+      <div class="hw-diagram reveal">
+        <div class="hw-diagram-header">
+          <div class="hw-dot" style="background:#F4623A;"></div>
+          <div class="hw-dot" style="background:#F5A623;"></div>
+          <div class="hw-dot" style="background:#00A896;"></div>
+          <span
+            style="font-family:var(--ff-mono); font-size:11px; color:var(--muted); margin-left:8px;">hardware_diagram.system</span>
+          <span style="margin-left:auto; font-family:var(--ff-mono); font-size:10px; color:var(--teal);">● ALL SYSTEMS
+            OPERATIONAL</span>
+        </div>
+        <div class="hw-diagram-body">
+          <div class="hw-component">
+            <span class="hw-icon">📷</span>
+            <h4>Camera</h4>
+            <p>HD overhead mount captures waste in real-time from above the platform</p>
+            <span class="hw-tag">1080p · 30fps</span>
+          </div>
+          <div class="hw-component">
+            <span class="hw-icon">⚙️</span>
+            <h4>Stepper Motor</h4>
+            <p>Precision-controlled NEMA 17 motor drives the rotating platform with ±1° accuracy</p>
+            <span class="hw-tag">NEMA 17</span>
+          </div>
+          <div class="hw-component">
+            <span class="hw-icon">🔄</span>
+            <h4>Rotating Platform</h4>
+            <p>9-position indexed plate directs waste into the correct compartment within 500ms</p>
+            <span class="hw-tag">500ms · 360°</span>
+          </div>
+          <div class="hw-component">
+            <span class="hw-icon">🗑</span>
+            <h4>9 Compartments</h4>
+            <p>Dedicated, labeled bins for each waste category — no cross-contamination</p>
+            <span class="hw-tag">Labeled · Sealed</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STACK -->
+  <section class="stack-section" id="stack">
+    <div class="max-w">
+      <div class="section-label">Tech Stack</div>
+      <h2 class="section-title reveal">Built on the<br>best tools.</h2>
+      <div class="stack-grid reveal">
+        <div class="stack-item">
+          <span class="stack-icon">🐍</span>
+          <span class="stack-name">Python</span>
+          <span class="stack-role">Core runtime</span>
+        </div>
+        <div class="stack-item">
+          <span class="stack-icon">🎯</span>
+          <span class="stack-name">YOLOv8</span>
+          <span class="stack-role">Detection</span>
+        </div>
+        <div class="stack-item">
+          <span class="stack-icon">🧠</span>
+          <span class="stack-name">LeViT-256</span>
+          <span class="stack-role">Classification</span>
+        </div>
+        <div class="stack-item">
+          <span class="stack-icon">🌐</span>
+          <span class="stack-name">Flask</span>
+          <span class="stack-role">REST API</span>
+        </div>
+        <div class="stack-item">
+          <span class="stack-icon">👁</span>
+          <span class="stack-name">OpenCV</span>
+          <span class="stack-role">Vision</span>
+        </div>
+        <div class="stack-item">
+          <span class="stack-icon">⚡</span>
+          <span class="stack-name">IoT Layer</span>
+          <span class="stack-role">Hardware</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ROADMAP -->
+  <section class="roadmap-section" id="roadmap">
+    <div class="max-w">
+      <div class="section-label">What's Next</div>
+      <h2 class="section-title reveal">The road<br>ahead.</h2>
+      <p class="section-desc reveal reveal-delay-1">
+        Vision Bin v1.0 is just the beginning. Here's where we're taking it next.
+      </p>
+
+      <div class="roadmap-list reveal">
+        <div class="roadmap-item">
+          <div class="roadmap-dot">☁</div>
+          <div class="roadmap-phase">Phase 1</div>
+          <h3>IoT Cloud Dashboard</h3>
+          <p>Real-time bin monitoring, fill-level alerts, and waste trend analytics streamed to a cloud dashboard for
+            facility managers and smart city operators.</p>
+          <div class="roadmap-tags">
+            <span class="r-tag">MQTT</span>
+            <span class="r-tag">AWS IoT</span>
+            <span class="r-tag">Grafana</span>
+          </div>
+        </div>
+        <div class="roadmap-item">
+          <div class="roadmap-dot">📱</div>
+          <div class="roadmap-phase">Phase 2</div>
+          <h3>Mobile App Integration</h3>
+          <p>User-facing app with disposal insights, gamified eco-rewards, pickup schedules, and community waste
+            leaderboards to drive sustainable behavior.</p>
+          <div class="roadmap-tags">
+            <span class="r-tag">React Native</span>
+            <span class="r-tag">Push Alerts</span>
+            <span class="r-tag">Gamification</span>
+          </div>
+        </div>
+        <div class="roadmap-item">
+          <div class="roadmap-dot">⚡</div>
+          <div class="roadmap-phase">Phase 3</div>
+          <h3>Edge AI Optimization</h3>
+          <p>Deploying the full inference pipeline on Jetson Nano and Raspberry Pi for zero-latency autonomous operation
+            with zero cloud dependency.</p>
+          <div class="roadmap-tags">
+            <span class="r-tag">Jetson Nano</span>
+            <span class="r-tag">TensorRT</span>
+            <span class="r-tag">Raspberry Pi</span>
+          </div>
+        </div>
+        <div class="roadmap-item">
+          <div class="roadmap-dot">🌆</div>
+          <div class="roadmap-phase">Phase 4</div>
+          <h3>Smart City Analytics</h3>
+          <p>Municipal dashboards with waste route optimization, contamination heatmaps, and sustainability KPIs —
+            enabling data-driven urban waste policy.</p>
+          <div class="roadmap-tags">
+            <span class="r-tag">GIS</span>
+            <span class="r-tag">Route Optimization</span>
+            <span class="r-tag">Open Data</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIVE DEMO SECTION -->
+  <section class="demo-section" id="demo">
+    <div class="max-w">
+      <div class="section-label">Smart Bin Simulation</div>
+      <h2 class="section-title reveal">See the<br>machine work.</h2>
+      <p class="section-desc reveal reveal-delay-1">
+        Watch how VisionBin's physical system detects, classifies, rotates, and sorts waste
+        autonomously — from camera scan to bin placement.
+      </p>
+
+      <!-- 2×2 Simulation Grid -->
+      <div class="sim-grid reveal" id="simGrid">
+
+        <!-- Panel 1: Detect -->
+        <div class="sim-panel active-panel" id="simPanel1">
+          <div class="sim-step-badge">
+            <div class="sim-step-num">1</div><span class="sim-step-title">Detect</span>
+          </div>
+          <div class="sim-scanner"></div>
+          <div class="sim-machine">
+            <div class="sim-camera-frame">
+              <div class="sim-camera-arm-left"></div>
+              <div class="sim-camera-arm-right"></div>
+              <div class="sim-camera-bar">
+                <div class="sim-camera-lens"></div>
+              </div>
+            </div>
+            <div class="sim-turntable">
+              <span class="sim-waste-item" id="simWaste1">🧴</span>
+            </div>
+          </div>
+          <div class="sim-detect-tooltip" id="simTooltip">
+            <div class="sim-detect-line"><span class="label-key">Waste Detected:</span> <span class="val"
+                id="simDetectClass">Plastic</span></div>
+            <div class="sim-detect-line"><span class="label-key">Confidence:</span> <span class="val"
+                id="simDetectConf">92%</span></div>
+            <div class="sim-detect-line"><span class="label-key">Model:</span> <span class="val">LeViT Classifier</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 2: Rotate -->
+        <div class="sim-panel" id="simPanel2">
+          <div class="sim-step-badge">
+            <div class="sim-step-num">2</div><span class="sim-step-title">Rotate</span>
+          </div>
+          <div class="sim-rotate-scene">
+            <div class="sim-arc"></div>
+            <div class="sim-camera-frame">
+              <div class="sim-camera-arm-left"></div>
+              <div class="sim-camera-arm-right"></div>
+              <div class="sim-camera-bar">
+                <div class="sim-camera-lens"></div>
+              </div>
+            </div>
+            <div class="sim-turntable-rotating">
+              <span class="sim-waste-item" id="simWaste2">🧴</span>
+            </div>
+          </div>
+          <div class="sim-rotate-badge">Rotating to <span class="deg" id="simDeg">90°</span></div>
+        </div>
+
+        <!-- Panel 3: Drop -->
+        <div class="sim-panel" id="simPanel3">
+          <div class="sim-step-badge">
+            <div class="sim-step-num">3</div><span class="sim-step-title">Drop</span>
+          </div>
+          <div class="sim-drop-scene">
+            <div class="sim-camera-frame">
+              <div class="sim-camera-arm-left"></div>
+              <div class="sim-camera-arm-right"></div>
+              <div class="sim-camera-bar">
+                <div class="sim-camera-lens"></div>
+              </div>
+            </div>
+            <div class="sim-turntable-tilt">
+              <span class="sim-waste-item" style="opacity:0.3;" id="simWaste3">🧴</span>
+            </div>
+            <span class="sim-falling-waste" id="simWasteFall">🧴</span>
+            <div class="sim-tilt-glow"></div>
+          </div>
+        </div>
+
+        <!-- Panel 4: Sorted Bins -->
+        <div class="sim-panel" id="simPanel4">
+          <div class="sim-step-badge">
+            <div class="sim-step-num">4</div><span class="sim-step-title">Sorted</span>
+          </div>
+          <div class="sim-bins-scene">
+            <div class="sim-bin" id="binOrganic">
+              <div class="sim-bin-fill"></div>
+              <div class="sim-bin-items">🍂🍌</div>
+              <div class="sim-bin-label">Organic</div>
+            </div>
+            <div class="sim-bin" id="binCardboard">
+              <div class="sim-bin-fill"></div>
+              <div class="sim-bin-items">📦</div>
+              <div class="sim-bin-label">Cardboard</div>
+            </div>
+            <div class="sim-bin active-bin" id="binPlastic">
+              <div class="sim-bin-fill"></div>
+              <div class="sim-bin-items" id="binPlasticItems">🧴🥤</div>
+              <div class="sim-bin-label" id="binActiveLabel">Plastic</div>
+            </div>
+            <div class="sim-bin" id="binMetal">
+              <div class="sim-bin-fill"></div>
+              <div class="sim-bin-items">🥫</div>
+              <div class="sim-bin-label">Metal</div>
+            </div>
+            <div class="sim-bin" id="binGlass">
+              <div class="sim-bin-fill"></div>
+              <div class="sim-bin-items">🍶</div>
+              <div class="sim-bin-label">Glass</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Step indicator row -->
+      <div class="sim-steps-row" id="simStepsRow">
+        <div class="sim-step-indicator active-step" data-step="1"><span class="s-num">1</span> Detect</div>
+        <div class="sim-step-indicator" data-step="2"><span class="s-num">2</span> Rotate</div>
+        <div class="sim-step-indicator" data-step="3"><span class="s-num">3</span> Drop</div>
+        <div class="sim-step-indicator" data-step="4"><span class="s-num">4</span> Sorted</div>
+      </div>
+
+      <!-- CTA -->
+      <div class="demo-cta-row">
+        <a href="http://localhost:5000" target="_blank" rel="noopener" class="btn-primary" id="demoLaunchBtn">Launch
+          Live Demo →</a>
+        <a href="#tech" class="btn-ghost">Learn More</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <div class="footer-section" id="contact">
+    <div class="footer-top">
+      <div>
+        <div class="footer-brand">VISION<span>BIN</span></div>
+        <p class="footer-tagline">Hybrid YOLOv8–LeViT-256 AI waste classification system. Turning every trash can into a
+          smart recycling terminal.</p>
+      </div>
+      <div class="footer-info">
+        <p>Built by</p>
+        <div class="creator">Vikram S</div>
+        <p style="margin-bottom:0;">AI / IoT Integration</p>
+        <p>Ideathon 2026</p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-made">Made with <span>♻</span> for a sustainable future</div>
+    </div>
+  </div>
+
+  <!-- FLOATING CTA -->
+  <a href="http://localhost:5000" target="_blank" rel="noopener" class="floating-cta" id="floatingCta">
+    <span class="pulse-dot"></span> Try Live Demo
+  </a>
+
+  <!-- BACK TO TOP -->
+  <a href="#home" class="back-to-top" id="backToTop">↑</a>
+
+  <script>
+    /* ─── Cursor ─── */
+    const cursor = document.getElementById('cursor');
+    const ring = document.getElementById('cursorRing');
+    let mx = 0, my = 0, rx = 0, ry = 0;
+
+    document.addEventListener('mousemove', e => {
+      mx = e.clientX; my = e.clientY;
+      cursor.style.transform = `translate(${mx - 4}px, ${my - 4}px)`;
+    });
+
+    function animRing() {
+      rx += (mx - rx) * 0.12;
+      ry += (my - ry) * 0.12;
+      ring.style.transform = `translate(${rx - 18}px, ${ry - 18}px)`;
+      requestAnimationFrame(animRing);
+    }
+    animRing();
+
+    /* ─── Ticker ─── */
+    const items = ['90.14% Accuracy', '9 Waste Categories', 'YOLOv8 Detection', 'LeViT-256 Classifier', '<20ms Inference', '100% Automated Sorting', 'Stepper Motor Control', 'Real-time Processing', 'Edge AI Ready'];
+    const ticker = document.getElementById('ticker');
+    const html = items.map(i => `<span class="ticker-item">${i} <span class="ticker-sep">◆</span></span>`).join('');
+    ticker.innerHTML = html + html; // duplicate for seamless loop
+
+    /* ─── Scroll reveal ─── */
+    const reveals = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+    }, { threshold: 0.12 });
+    reveals.forEach(el => observer.observe(el));
+
+    /* ─── Count-up animation ─── */
+    function countUp(el) {
+      const target = parseFloat(el.dataset.count);
+      const suffix = el.dataset.suffix || '';
+      const decimals = target % 1 !== 0 ? 2 : 0;
+      const dur = 1800;
+      const start = performance.now();
+      function step(now) {
+        const p = Math.min((now - start) / dur, 1);
+        const eased = 1 - Math.pow(1 - p, 3);
+        const val = eased * target;
+        el.textContent = val.toFixed(decimals) + suffix;
+        if (p < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    const counterObs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting && e.target.dataset.count) {
+          countUp(e.target);
+          counterObs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.5 });
+    document.querySelectorAll('[data-count]').forEach(el => counterObs.observe(el));
+
+    /* ─── Nav active state ─── */
+    const sections = document.querySelectorAll('section[id], div[id]');
+    const navLinks = document.querySelectorAll('.nav-links a');
+    window.addEventListener('scroll', () => {
+      let current = '';
+      sections.forEach(s => {
+        if (window.scrollY >= s.offsetTop - 100) current = s.id;
+      });
+      navLinks.forEach(a => {
+        a.style.color = a.getAttribute('href') === '#' + current ? 'var(--teal)' : '';
+      });
+    }, { passive: true });
+
+    /* ─── Particle Canvas ─── */
+    const canvas = document.getElementById('particleCanvas');
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      let particles = [];
+      function resizeCanvas() {
+        canvas.width = canvas.parentElement.offsetWidth;
+        canvas.height = canvas.parentElement.offsetHeight;
+      }
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+
+      for (let i = 0; i < 60; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          r: Math.random() * 2 + 0.5,
+          dx: (Math.random() - 0.5) * 0.4,
+          dy: (Math.random() - 0.5) * 0.4,
+          o: Math.random() * 0.4 + 0.1
+        });
+      }
+
+      function drawParticles() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(0,168,150,${p.o})`;
+          ctx.fill();
+          p.x += p.dx; p.y += p.dy;
+          if (p.x < 0 || p.x > canvas.width) p.dx *= -1;
+          if (p.y < 0 || p.y > canvas.height) p.dy *= -1;
+        });
+        // Draw connecting lines
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i + 1; j < particles.length; j++) {
+            const dist = Math.hypot(particles[i].x - particles[j].x, particles[i].y - particles[j].y);
+            if (dist < 120) {
+              ctx.beginPath();
+              ctx.moveTo(particles[i].x, particles[i].y);
+              ctx.lineTo(particles[j].x, particles[j].y);
+              ctx.strokeStyle = `rgba(0,168,150,${0.06 * (1 - dist / 120)})`;
+              ctx.lineWidth = 0.5;
+              ctx.stroke();
+            }
+          }
+        }
+        requestAnimationFrame(drawParticles);
+      }
+      drawParticles();
+    }
+
+    /* ─── Floating CTA & Back to Top ─── */
+    const floatingCta = document.getElementById('floatingCta');
+    const backToTop = document.getElementById('backToTop');
+    window.addEventListener('scroll', () => {
+      const show = window.scrollY > 600;
+      floatingCta && floatingCta.classList.toggle('visible', show);
+      backToTop && backToTop.classList.toggle('visible', show);
+    }, { passive: true });
+
+    /* ─── Smart Bin Simulation Cycle ─── */
+    const simItems = [
+      { emoji: '🧴', name: 'Plastic', conf: 87, deg: 90, binId: 'binPlastic', binEmoji: '🧴' },
+      { emoji: '📦', name: 'Cardboard', conf: 91, deg: 45, binId: 'binCardboard', binEmoji: '📦' },
+      { emoji: '🍶', name: 'Glass', conf: 90, deg: 180, binId: 'binGlass', binEmoji: '🍶' },
+      { emoji: '🥫', name: 'Metal', conf: 90, deg: 135, binId: 'binMetal', binEmoji: '🥫' },
+      { emoji: '🍂', name: 'Organic', conf: 96, deg: 0, binId: 'binOrganic', binEmoji: '🍂' },
+      { emoji: '📄', name: 'Paper', conf: 90, deg: 60, binId: 'binCardboard', binEmoji: '📄' },
+      { emoji: '🔌', name: 'E-Waste', conf: 91, deg: 120, binId: 'binMetal', binEmoji: '🔌' },
+      { emoji: '💊', name: 'Medical', conf: 85, deg: 150, binId: 'binGlass', binEmoji: '💊' },
+      { emoji: '🫧', name: 'Foam', conf: 89, deg: 30, binId: 'binOrganic', binEmoji: '🫧' },
+    ];
+    let simIdx = 0;
+    let simStep = 1;
+
+    const simWaste1 = document.getElementById('simWaste1');
+    const simWaste2 = document.getElementById('simWaste2');
+    const simWaste3 = document.getElementById('simWaste3');
+    const simWasteFall = document.getElementById('simWasteFall');
+    const simDetCls = document.getElementById('simDetectClass');
+    const simDetConf = document.getElementById('simDetectConf');
+    const simDeg = document.getElementById('simDeg');
+    const simPanels = [document.getElementById('simPanel1'), document.getElementById('simPanel2'),
+    document.getElementById('simPanel3'), document.getElementById('simPanel4')];
+    const simSteps = document.querySelectorAll('#simStepsRow .sim-step-indicator');
+    const allBins = document.querySelectorAll('.sim-bin');
+
+    function updateSimWaste() {
+      const item = simItems[simIdx];
+      // Update waste emojis in panels 1-3
+      if (simWaste1) simWaste1.textContent = item.emoji;
+      if (simWaste2) simWaste2.textContent = item.emoji;
+      if (simWaste3) simWaste3.textContent = item.emoji;
+      if (simWasteFall) simWasteFall.textContent = item.emoji;
+      // Update detection tooltip
+      if (simDetCls) simDetCls.textContent = item.name;
+      if (simDetConf) simDetConf.textContent = item.conf + '%';
+      // Update rotation badge
+      if (simDeg) simDeg.textContent = item.deg + '°';
+      // Update active bin highlight
+      allBins.forEach(b => b.classList.remove('active-bin'));
+      const activeBin = document.getElementById(item.binId);
+      if (activeBin) activeBin.classList.add('active-bin');
+    }
+
+    function advanceSimStep() {
+      // Highlight active panel
+      simPanels.forEach((p, i) => {
+        if (p) p.classList.toggle('active-panel', i === (simStep - 1));
+      });
+      // Highlight step indicators
+      simSteps.forEach(s => {
+        s.classList.toggle('active-step', parseInt(s.dataset.step) === simStep);
+      });
+      // Move to next step, cycle waste on step 1
+      simStep++;
+      if (simStep > 4) {
+        simStep = 1;
+        simIdx = (simIdx + 1) % simItems.length;
+        updateSimWaste();
+      }
+    }
+
+    updateSimWaste();
+    setInterval(advanceSimStep, 2000);
+
+    /* ─── Hero Subtitle Typing Effect ─── */
+    const subtitleEl = document.getElementById('heroSubtitle');
+    if (subtitleEl) {
+      const phrases = [
+        'AI-Powered Smart Waste Classification',
+        'YOLOv8 + LeViT-256 Hybrid System',
+        '90.14% Classification Accuracy',
+        'Real-time Edge AI Processing'
+      ];
+      let pIdx = 0, cIdx = 0, deleting = false;
+      function typeEffect() {
+        const current = phrases[pIdx];
+        if (!deleting) {
+          subtitleEl.textContent = current.substring(0, cIdx + 1);
+          cIdx++;
+          if (cIdx === current.length) {
+            deleting = true;
+            setTimeout(typeEffect, 2000);
+            return;
+          }
+          setTimeout(typeEffect, 60);
+        } else {
+          subtitleEl.textContent = current.substring(0, cIdx);
+          cIdx--;
+          if (cIdx < 0) {
+            deleting = false;
+            pIdx = (pIdx + 1) % phrases.length;
+            cIdx = 0;
+            setTimeout(typeEffect, 400);
+            return;
+          }
+          setTimeout(typeEffect, 30);
+        }
+      }
+      setTimeout(() => { subtitleEl.textContent = ''; typeEffect(); }, 2500);
+    }
+
+    /* ─── Parallax Orbs on Scroll ─── */
+    const orbs = document.querySelectorAll('.orb');
+    window.addEventListener('scroll', () => {
+      const y = window.scrollY;
+      orbs.forEach((orb, i) => {
+        const speed = 0.03 + i * 0.02;
+        orb.style.transform = `translateY(${y * speed}px)`;
+      });
+    }, { passive: true });
+  </script>
+</body>
+
 </html>
-<p>Updated version</p>

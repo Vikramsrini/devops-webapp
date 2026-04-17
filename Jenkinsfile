@@ -43,14 +43,18 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        # Use k3s kubectl with sudo for proper authentication
-                        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+                        # Copy kubeconfig to Jenkins home with proper permissions
+                        mkdir -p ~/.kube
+                        sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+                        sudo chown $(id -u):$(id -g) ~/.kube/config
+                        sudo chmod 600 ~/.kube/config
+                        export KUBECONFIG=~/.kube/config
                         
-                        sudo k3s kubectl apply --validate=false -f k8s/deployment.yaml
-                        sudo k3s kubectl set image deployment/myapp myapp=${DOCKER_IMAGE}:${DOCKER_TAG}
-                        sudo k3s kubectl rollout status deployment/myapp
-                        sudo k3s kubectl get pods -l app=myapp
-                        sudo k3s kubectl get svc myapp-service
+                        kubectl apply --validate=false -f k8s/deployment.yaml
+                        kubectl set image deployment/myapp myapp=${DOCKER_IMAGE}:${DOCKER_TAG}
+                        kubectl rollout status deployment/myapp
+                        kubectl get pods -l app=myapp
+                        kubectl get svc myapp-service
                     '''
                 }
             }
@@ -60,9 +64,10 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        # Verify deployment with k3s kubectl
-                        sudo k3s kubectl get pods -l app=myapp
-                        sudo k3s kubectl get svc myapp-service
+                        # Verify deployment with kubectl
+                        export KUBECONFIG=~/.kube/config
+                        kubectl get pods -l app=myapp
+                        kubectl get svc myapp-service
                         
                         # Get node IP
                         NODE_IP=15.135.82.142

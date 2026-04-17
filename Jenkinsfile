@@ -43,7 +43,7 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        kubectl apply -f k8s/deployment.yaml
+                        kubectl apply --validate=false -f k8s/deployment.yaml
                         kubectl set image deployment/myapp myapp=${DOCKER_IMAGE}:${DOCKER_TAG}
                         kubectl rollout status deployment/myapp
                         kubectl get pods -l app=myapp

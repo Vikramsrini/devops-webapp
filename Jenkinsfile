@@ -43,6 +43,12 @@ pipeline {
             steps {
                 script {
                     sh '''
+                        # Configure kubectl to use k3s
+                        mkdir -p ~/.kube
+                        sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config 2>/dev/null || cp ~/.kube/config ~/.kube/config 2>/dev/null || true
+                        sudo chown $(id -u):$(id -g) ~/.kube/config 2>/dev/null || true
+                        export KUBECONFIG=~/.kube/config
+                        
                         kubectl apply --validate=false -f k8s/deployment.yaml
                         kubectl set image deployment/myapp myapp=${DOCKER_IMAGE}:${DOCKER_TAG}
                         kubectl rollout status deployment/myapp

@@ -27,6 +27,8 @@ pipeline {
                 script {
                     sh '''
                         echo "Running container tests..."
+                        docker stop test-container 2>/dev/null || true
+                        docker rm test-container 2>/dev/null || true
                         docker run -d --name test-container -p 8081:80 ${DOCKER_IMAGE}:${DOCKER_TAG}
                         sleep 5
                         curl -f http://localhost:8081 || exit 1

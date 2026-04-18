@@ -43,12 +43,24 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        # Copy kubeconfig to Jenkins home with proper permissions
-                        mkdir -p ~/.kube
-                        sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
-                        sudo chown $(id -u):$(id -g) ~/.kube/config
-                        sudo chmod 600 ~/.kube/config
-                        export KUBECONFIG=~/.kube/config
+                        # Prepare kubeconfig without requiring interactive sudo.
+                        mkdir -p "$HOME/.kube"
+                        if [ -f "$HOME/.kube/config" ]; then
+                            echo "Using existing kubeconfig at $HOME/.kube/config"
+                        elif [ -r /etc/rancher/k3s/k3s.yaml ]; then
+                            cp /etc/rancher/k3s/k3s.yaml "$HOME/.kube/config"
+                            chmod 600 "$HOME/.kube/config"
+                        elif sudo -n test -r /etc/rancher/k3s/k3s.yaml; then
+                            sudo -n cp /etc/rancher/k3s/k3s.yaml "$HOME/.kube/config"
+                            sudo -n chown $(id -u):$(id -g) "$HOME/.kube/config"
+                            chmod 600 "$HOME/.kube/config"
+                        else
+                            echo "ERROR: kubeconfig is not accessible."
+                            echo "Provide $HOME/.kube/config for the Jenkins user,"
+                            echo "or allow passwordless sudo for reading /etc/rancher/k3s/k3s.yaml."
+                            exit 1
+                        fi
+                        export KUBECONFIG="$HOME/.kube/config"
                         
                         kubectl apply --validate=false -f k8s/deployment.yaml
                         kubectl set image deployment/myapp myapp=${DOCKER_IMAGE}:${DOCKER_TAG}

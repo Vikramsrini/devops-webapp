@@ -55,7 +55,13 @@ pipeline {
                         
                         kubectl apply --validate=false -f k8s/deployment.yaml
                         kubectl set image deployment/myapp myapp=${DOCKER_IMAGE}:${DOCKER_TAG}
-                        kubectl rollout status deployment/myapp
+                        kubectl rollout status deployment/myapp --timeout=120s || {
+                          echo "Rollout failed/timed out. Debugging info:"
+                          kubectl get pods -l app=myapp -o wide || true
+                          kubectl describe deployment myapp || true
+                          kubectl describe pods -l app=myapp || true
+                          exit 1
+                        }
                         kubectl get pods -l app=myapp
                         kubectl get svc myapp-service
                     '''

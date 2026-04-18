@@ -4,6 +4,7 @@ pipeline {
     environment {
         DOCKER_IMAGE = "myapp"
         DOCKER_TAG = "${BUILD_NUMBER}"
+        AWS_NODE_IP = "54.253.147.123"
     }
     
     stages {
@@ -43,23 +44,13 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        # Prepare kubeconfig without requiring interactive sudo.
+                        # Jenkins must already have a readable kubeconfig.
                         mkdir -p "$HOME/.kube"
-                        if [ -f "$HOME/.kube/config" ]; then
-                            echo "Using existing kubeconfig at $HOME/.kube/config"
-                        elif [ -r /etc/rancher/k3s/k3s.yaml ]; then
-                            cp /etc/rancher/k3s/k3s.yaml "$HOME/.kube/config"
-                            chmod 600 "$HOME/.kube/config"
-                        elif sudo -n test -r /etc/rancher/k3s/k3s.yaml; then
-                            sudo -n cp /etc/rancher/k3s/k3s.yaml "$HOME/.kube/config"
-                            sudo -n chown $(id -u):$(id -g) "$HOME/.kube/config"
-                            chmod 600 "$HOME/.kube/config"
-                        else
-                            echo "ERROR: kubeconfig is not accessible."
-                            echo "Provide $HOME/.kube/config for the Jenkins user,"
-                            echo "or allow passwordless sudo for reading /etc/rancher/k3s/k3s.yaml."
-                            exit 1
-                        fi
+                        test -r "$HOME/.kube/config" || {
+                          echo "ERROR: Missing readable kubeconfig at $HOME/.kube/config"
+                          echo "Run server setup once: sudo install -m 600 -o jenkins -g jenkins /etc/rancher/k3s/k3s.yaml /var/lib/jenkins/.kube/config"
+                          exit 1
+                        }
                         export KUBECONFIG="$HOME/.kube/config"
                         
                         kubectl apply --validate=false -f k8s/deployment.yaml
@@ -82,7 +73,7 @@ pipeline {
                         kubectl get svc myapp-service
                         
                         # Get node IP
-                        NODE_IP=15.135.82.142
+                        NODE_IP=${AWS_NODE_IP}
                         NODE_PORT=30010
                         echo "Testing application at http://${NODE_IP}:${NODE_PORT}"
                         sleep 10
